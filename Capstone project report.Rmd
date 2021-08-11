@@ -1,0 +1,712 @@
+---
+title: "Capstone Project - Bellabeat Case Study"
+author: "Munzir"
+date: "8/4/2021"
+output: html_document
+---
+## Company Overview
+
+Bellabeat is a high-tech manufacturer of health-focused
+products for women. Bellabeat is a successful small company, but they have the potential to become a larger player in the
+global smart device market. Urška Sršen, cofounder and Chief Creative Officer of Bellabeat, believes that analyzing smart
+device fitness data could help unlock new growth opportunities for the company.
+
+## Analysis Objective
+
+The primary objective of this analysis is to gain insight on how customers use their smart devices.The insights will help guide Bellabeat's marketing team build strategies for product promotions and marketing.
+
+## Stakeholders
+
+**Urška Sršen**: Bellabeat’s cofounder and Chief Creative Officer.\n
+
+**Sando Mur**: Mathematician and Bellabeat’s cofounder; key member of the Bellabeat executive team.\n
+
+**Bellabeat marketing team**.
+
+## Analysis phases
+
+The analysis consisits of 6 phases namely, **Ask**,**Prepare**,**Process**,**Analyze**,**Share**,**Act**.
+
+### **Ask**:
+
+**Business Task**:
+The marketing analytics team has been assigned the task of focussing on a Bellabeat product and analyze smart device usage data in order to gain
+insight into how people are already using their smart devices. Then, using this information, prepare high-level
+recommendations for how these trends can inform Bellabeat marketing strategy.
+
+### **Prepare**:
+
+**Data Sources**:
+1. The FitBit Dataset available on Kaggle was primarily used for the analysis.
+You may find the resource by  clicking on the following [link](https://www.kaggle.com/arashnic/fitbit). This Kaggle data set
+contains personal fitness tracker from thirty fitbit users. Thirty eligible Fitbit users consented to the submission of
+personal tracker data, including minute-level output for physical activity, heart rate, and sleep monitoring. It includes
+information about daily activity, steps, and heart rate that can be used to explore users’ habits. [Mobius](https://www.kaggle.com/arashnic) is the owner of the data set.
+
+2.The following [steps data](https://www.medicinenet.com/how_many_steps_a_day_is_considered_active/article.htm) was used to distinguish steps categories.
+The following [weight data](https://www.cdc.gov/obesity/adult/defining.html) was used to distinguish weight category.
+
+### **Process**:
+
+**Errors in Data**:
+
+1.Found difference of **104280** steps between daily steps and hourly steps total,by summing up Total steps in *Activity* data frame and Total Steps in *hourlysteps* dataframe. 
+
+2.Found difference of **13243** calories between hourly and daily calories,by summing calories in *Activity* and *hourlycalories* data frames.
+
+**NA Values**:
+
+1.Found 65 NA values in FAT variable of weight data set, hence did not use the fat data.
+
+**Data Cleaning and Manipulation**
+
+1.For *Activity* data set, added all types of minutes to a single column named total active minutes and all types of distances to a single column named total active distance.
+
+2.Made a new data frame named *Activity1* with *Activity* data frame with selected variables for ease of analysis.
+
+3.For *weightinfo* data set,formed a new column weight category,for distinguishing between weight categories based on *BMI*.
+
+4.Joining *Activity1* and *Sleepday* data set gave NA values as sleepday had less number of id's recording their observations, hence joined *Sleepday* and *Activity1* with a left_join for analyzing steps,sleep and sedentary minutes variables of health.
+
+5.Created a new data frame *df* with select variables and added another variable for difference in total time in bed with total minutes asleep, for ease of analyzing required variables.
+
+6.Created a new data frame from *df* named *Analysis* and mutated columns sleep category, steps category, sedentary category.
+
+7.Created a new data frame from *Analysis* named *Analysis12*,with a new variable *Lifestyle Category* based on the type of sleep,steps and sedentary minutes.
+
+8.A total of **38** different combinations were made for sleep,steps,sedentary minutes category which were then split into **6** different *Lifestyle Categories* namely,**Needs Activity,Needs less sitting time,Needs less sleep time,Somewhat Healthy,Unhealthy,Very Unhealthy**.
+
+##  Loading packages
+```{r message=TRUE}
+library(tidyverse)
+library(here)
+library(dplyr)
+library(lubridate)
+library(skimr)
+library(janitor)
+library(readr)
+library(data.table)
+```
+
+## Importing Datasets
+```{r message=TRUE}
+activity <- read_csv("dailyActivity_merged.csv")
+calories <- read_csv("dailyCalories_merged.csv")
+intensities <-  read_csv("dailyIntensities_merged.csv")
+steps <-  read_csv("dailySteps_merged.csv")
+hourlycalories <- read_csv("hourlyCalories_merged.csv")
+hourlyintensities <- read_csv("hourlyIntensities_merged.csv")
+hourlysteps <- read_csv("hourlySteps_merged.csv")
+heartrateseconds <-  read_csv("heartrate_seconds_merged.csv")
+sleepday <- read_csv("sleepDay_merged.csv")
+weightinfo <- read_csv("weightLogInfo_merged.csv")
+
+```
+
+## Overviewing the Data Sets
+```{r message=TRUE}
+glimpse(activity)
+summary(activity)
+head(activity)
+names(activity)
+
+glimpse(calories)
+summary(calories)
+head(calories)
+
+glimpse(intensities)
+summary(intensities)
+head(intensities)
+names(intensities)
+
+glimpse(steps)
+summary(steps)
+head(steps)
+names(steps)
+
+glimpse(sleepday)
+summary(sleepday)
+head(sleepday)
+names(sleepday)
+
+glimpse(weightinfo)
+summary(weightinfo)
+head(weightinfo)
+names(weightinfo)
+
+glimpse(heartrateseconds)
+summary(heartrateseconds)
+head(heartrateseconds)
+names(heartrateseconds)
+```
+
+## Data cleaning and exploration
+
+```{r message=TRUE}
+# joining activity and hourly steps data frames to verify distinct id's
+
+joint <- inner_join(activity,hourlysteps,by ="Id")
+
+count_joint <- n_distinct(joint$Id)
+head(count_joint)
+```
+There are 33 distinct id's in Activity and hourly steps data frames
+
+
+```{r message=TRUE}
+# adding daily steps total
+
+sum_dailysteps <- sum(activity$TotalSteps)
+head(sum_dailysteps)
+```
+
+
+```{r message=TRUE}
+# adding hourly steps total
+
+sum_hourlysteps <- sum(hourlysteps$StepTotal)
+head(sum_hourlysteps)
+```
+
+
+
+```{r message=TRUE}
+# adding calories 
+
+sum_dailycalories <- sum(calories$Calories)
+head(sum_dailycalories)
+```
+
+
+
+```{r message=TRUE}
+# adding hourly calories 
+
+sum_hourlycalories <- sum(hourlycalories$Calories)
+head(sum_hourlycalories)
+```
+
+
+
+```{r message=TRUE}
+# creating new data frame activity1 for activity with cleaned names mutated variable and selected variables
+
+activity1 <- activity %>% clean_names() %>% mutate(total_active_distance = very_active_distance+moderately_active_distance+light_active_distance+sedentary_active_distance) %>%
+  mutate(total_active_minutes=very_active_minutes+fairly_active_minutes+lightly_active_minutes) %>% 
+  select(id,activity_date,total_steps,total_distance,total_active_distance,total_active_minutes,sedentary_minutes,calories)
+head(activity1)
+
+# creating new data frame weight for weight info with cleaned names and mutated variable, select variable
+
+weight <- weightinfo %>% clean_names() %>% 
+  select(id,date,weight_kg,bmi,is_manual_report) %>% 
+  mutate(weight_category = case_when(bmi < 18.5 ~ "Underweight" ,bmi >= 18.5 & bmi <= 24.9 ~"Healthyweight",bmi >= 25 & bmi <= 29.9 ~"Overweight",bmi >=30 & bmi <=39 ~"Obese",bmi>39 ~"SeverelyObese")) 
+head(weight)
+
+# creating new data frame plot_count_weight for plotting of weight category
+
+plot_count_weight <- count(weight,weight_category)
+head(plot_count_weight)
+```
+
+
+
+```{r message=TRUE, warning=FALSE}
+# creating new data frame sleep1 for sleep day with cleaned names and select variables
+
+sleep1 <- clean_names(sleepday)
+head(sleep1)
+
+sleep2 <- sleep1 %>% separate(sleep_day,c("sleepdate","sleeptime"),sep = " ")
+head(sleep2)
+
+# joining data frames activity1 and sleep2
+
+joined_activity1_sleep2 <- left_join(activity1,sleep2,by = c("id"="id","activity_date"="sleepdate"))
+head(joined_activity1_sleep2)
+
+# since left join is giving NA's for activity and sleep, joining sleep to activity with left join
+
+joined_sleep2_activity1 <- left_join(sleep2,activity1,by = c("id"="id","sleepdate"="activity_date"))
+head(joined_sleep2_activity1)
+```
+
+
+
+```{r message=TRUE}
+# assigning new name to newly created data frame and renaming of column
+
+df <- joined_sleep2_activity1 %>% rename(recording_date=sleepdate) 
+head(df)
+
+# calculating difference between total time in bed and total minutes asleep
+
+df$difference <-  df$total_time_in_bed - df$total_minutes_asleep
+
+# creating new data frame with selected columns
+
+df1 <- df %>% select(id,recording_date,total_sleep_records,total_minutes_asleep,total_time_in_bed,difference,everything())
+head(df1)
+```
+
+
+
+```{r message=TRUE}
+# creating max,min,mean for all variables in df1 by using summarise
+
+df2 <- df1 %>% 
+  summarise(maxsteps = max(total_steps),
+            minsteps = min(total_steps),
+            meansteps = mean(total_steps),
+            maxsleep = max(total_minutes_asleep),
+            minsleep = min(total_minutes_asleep),
+            meansleep = mean(total_minutes_asleep),
+            maxdistance = max(total_distance),
+            mindistance = min(total_distance),
+            meandistance = mean(total_distance),
+            maxminutes = max(total_active_minutes),
+            minminutes = min(total_active_minutes),
+            meanminutes = mean(total_active_minutes),
+            maxsedentaryminutes = max(sedentary_minutes),
+            minsedentaryminutes = min(sedentary_minutes),
+            meansedentaryminutes = mean(sedentary_minutes),
+            maxcal = max(calories),
+            mincal = min(calories),
+            meancal = mean(calories))
+head(df2)
+
+df3 <- heartrateseconds %>% 
+  summarise(maxrate = max(Value),
+            minrate = min(Value),
+            meanrate = mean(Value))
+head(df3)
+
+# creating new df for merging df2,df3 without any common variable using crossing
+
+df4 <- tidyr::crossing(df2,df3)
+head(df4)
+```
+
+
+
+```{r message=TRUE}
+# creating new variables in df1 data frame to analyze sleep,steps,sedentary minutes,calories
+
+analysis <- df1 %>%
+  mutate(sleep_category = case_when(total_minutes_asleep/60 < 6  ~ "InSufficient",total_minutes_asleep/60 >= 6 & total_minutes_asleep/60 <= 8 ~ "Sufficient",total_minutes_asleep/60 > 8 ~ "Oversleep"),
+           steps_category = case_when(total_steps <= 4999 ~ "Inactive",total_steps >=5000 & total_steps <= 7499 ~ "Low Activity",total_steps >= 7500 & total_steps <=9999 ~ "Somewhat Active",total_steps >= 10000 & total_steps <= 12499 ~ "Active",total_steps >=12500 ~ "Highly Active"),
+           sedentary_time_category = case_when(sedentary_minutes/60 < 4 ~ "Low Risk",sedentary_minutes/60 >= 4 & sedentary_minutes/60 <=8 ~ "Medium Risk",sedentary_minutes/60 > 8 & sedentary_minutes/60 <= 11 ~ "High Risk", sedentary_minutes/60 > 11 ~ "Very High Risk"))
+head(analysis)
+```
+
+
+
+```{r message=TRUE}
+# selecting columns id,sleep,step,sedentary category from analysis data frame and mutating new variable Lifestyle category based on different combinations of sleep,steps,sedentary time category
+
+analysis12 <- analysis %>% select(id,recording_date,sleep_category,steps_category,sedentary_time_category) %>% 
+  mutate(Lifestyle_category = case_when(sleep_category == "Oversleep"& steps_category == "Inactive"& sedentary_time_category == "Very High Risk" ~ "Very Unhealthy",
+                                        sleep_category == "InSufficient"& steps_category == "Inactive"& sedentary_time_category == "Very High Risk" ~ "Very Unhealthy",
+                                        sleep_category == "InSufficient"& steps_category == "Highly Active"& sedentary_time_category == "Very High Risk" ~ "Unhealthy",
+                                        sleep_category == "Sufficient"& steps_category == "Active"& sedentary_time_category == "Very High Risk" ~ "Needs less sitting time",
+                                        sleep_category == "Sufficient"& steps_category == "Somewhat Active"& sedentary_time_category == "Very High Risk" ~ "Needs less sitting time",
+                                        sleep_category == "Oversleep"& steps_category == "Somewhat Active"& sedentary_time_category == "High Risk" ~ "Unhealthy",
+                                        sleep_category == "InSufficient"& steps_category == "Somewhat Active"& sedentary_time_category == "Very High Risk" ~ "Unhealthy",
+                                        sleep_category == "Sufficient"& steps_category == "Highly Active"& sedentary_time_category == "Very High Risk" ~ "Needs less sitting time",
+                                        sleep_category == "InSufficient"& steps_category == "Active"& sedentary_time_category == "Very High Risk" ~ "Unhealthy",
+                                        sleep_category == "Oversleep"& steps_category == "Active"& sedentary_time_category == "High Risk" ~ "Unhealthy",
+                                        sleep_category == "InSufficient"& steps_category == "Low Activity"& sedentary_time_category == "Very High Risk" ~ "Very Unhealthy",
+                                        sleep_category == "Oversleep"& steps_category == "Inactive"& sedentary_time_category == "High Risk" ~ "Very Unhealthy",
+                                        sleep_category == "Oversleep"& steps_category == "Inactive"& sedentary_time_category == "Low Risk" ~ "Unhealthy",
+                                        sleep_category == "Sufficient"& steps_category == "Inactive"& sedentary_time_category == "Very High Risk" ~ "Unhealthy",
+                                        sleep_category == "Sufficient"& steps_category == "Low Activity"& sedentary_time_category == "High Risk" ~ "Unhealthy",
+                                        sleep_category == "Oversleep"& steps_category == "Active"& sedentary_time_category == "Medium Risk" ~ "Needs less sleep time",
+                                        sleep_category == "Oversleep"& steps_category == "Low Activity"& sedentary_time_category == "Very High Risk" ~ "Unhealthy",
+                                        sleep_category == "Oversleep"& steps_category == "Low Activity"& sedentary_time_category == "High Risk" ~ "Unhealthy",
+                                        sleep_category == "Sufficient"& steps_category == "Active"& sedentary_time_category == "Medium Risk" ~ "Somewhat Healthy",
+                                        sleep_category == "Sufficient"& steps_category == "Somewhat Active"& sedentary_time_category == "Medium Risk" ~ "Somewhat Healthy",
+                                        sleep_category == "Oversleep"& steps_category == "Somewhat Active"& sedentary_time_category == "Very High Risk" ~ "Unhealthy",
+                                        sleep_category == "Sufficient"& steps_category == "Highly Active"& sedentary_time_category == "High Risk" ~ "Needs less sitting time",
+                                        sleep_category == "Sufficient"& steps_category == "Somewhat Active"& sedentary_time_category == "High Risk" ~ "Needs less sitting time",
+                                        sleep_category == "Sufficient"& steps_category == "Low Activity"& sedentary_time_category == "Very High Risk" ~ "Unhealthy",
+                                        sleep_category == "Sufficient"& steps_category == "Active"& sedentary_time_category == "High Risk" ~ "Needs less sitting time",
+                                        sleep_category == "Sufficient"& steps_category == "Inactive"& sedentary_time_category == "Low Risk" ~ "Needs Activity",
+                                        sleep_category == "InSufficient"& steps_category == "Highly Active"& sedentary_time_category == "High Risk" ~ "Unhealthy",
+                                        sleep_category == "InSufficient"& steps_category == "Inactive"& sedentary_time_category == "Low Risk" ~ "Unhealthy",
+                                        sleep_category == "Oversleep"& steps_category == "Highly Active"& sedentary_time_category == "High Risk" ~ "Unhealthy",
+                                        sleep_category == "InSufficient"& steps_category == "Active"& sedentary_time_category == "High Risk" ~ "Unhealthy",
+                                        sleep_category == "Oversleep"& steps_category == "Inactive"& sedentary_time_category == "Medium Risk" ~ "Unhealthy",
+                                        sleep_category == "Oversleep"& steps_category == "Highly Active"& sedentary_time_category == "Medium Risk" ~ "Needs less sleep time",
+                                        sleep_category == "Sufficient"& steps_category == "Highly Active"& sedentary_time_category == "Medium Risk" ~ "Somewhat Healthy",
+                                        sleep_category == "Sufficient"& steps_category == "Inactive"& sedentary_time_category == "Medium Risk" ~ "Needs Activity",
+                                        sleep_category == "Sufficient"& steps_category == "Inactive"& sedentary_time_category == "High Risk" ~ "Unhealthy",
+                                        sleep_category == "Oversleep"& steps_category == "Low Activity"& sedentary_time_category == "Medium Risk" ~ "Unhealthy",
+                                        sleep_category == "Oversleep"& steps_category == "Somewhat Active"& sedentary_time_category == "Medium Risk" ~ "Needs less sleep time",
+                                        sleep_category == "Oversleep"& steps_category == "Active"& sedentary_time_category == "Very High Risk" ~ "Unhealthy",
+                                        sleep_category == "Oversleep"& steps_category == "Highly Active"& sedentary_time_category == "Very High Risk" ~ "Unhealthy"))
+head(analysis12)
+```
+
+
+
+```{r message=TRUE}
+# writing a csv file of analysis12
+
+write_csv(analysis12,"Analysis_Lifestyle_Category.csv")
+
+```
+
+### **Analyze**:
+
+```{r message=TRUE}
+# filtering analysis12 to find distinct id's under each lifestyle category
+
+f1 <- filter(analysis12,Lifestyle_category == "Needs Activity")
+head(f1)
+
+f2 <- filter(analysis12,Lifestyle_category == "Needs less sitting time")
+head(f2)
+
+f3 <- filter(analysis12,Lifestyle_category == "Needs less sleep time")
+head(f3)
+
+f4 <- filter(analysis12,Lifestyle_category == "Somewhat Healthy")
+head(f4)
+f5 <- filter(analysis12,Lifestyle_category == "Unhealthy")
+head(f5)
+
+f6 <- filter(analysis12,Lifestyle_category == "Very Unhealthy")
+head(f6)
+```
+
+
+
+```{r message=TRUE}
+# counting distinct id's for each lifestyle category
+
+c1 <- count(f1,id)
+head(c1)
+
+c2 <- count(f2,id)
+head(c2)
+
+c3 <- count(f3,id)
+head(c3)
+
+c4 <- count(f4,id)
+head(c4)
+
+c5 <- count(f5,id)
+head(c5)
+
+c6 <- count(f6,id)
+head(c6)
+```
+
+
+
+```{r message=TRUE}
+# joining f5 and f6 to find id's with unhealthy to very unhealthy lifestyle
+
+joinf5_f6 <- inner_join(f5,f6,by="id")
+
+countf5_f6 <- count(joinf5_f6,id)
+head(countf5_f6)
+```
+
+
+
+```{r message=TRUE}
+# creating data frame analysis13 by selecting 2 variables from analysis12
+
+analysis13 <- analysis12 %>% select(id,Lifestyle_category) 
+head(analysis13)
+```
+
+
+
+```{r message=TRUE}
+# counting lifestyle category for distinct id's
+
+analysis_count <- count(analysis13,id)
+head(analysis_count)
+```
+
+
+
+```{r message=TRUE}
+# joining steps and sleep day data frames to find distinct id's
+
+count_join <- inner_join(steps,sleepday,by="Id")
+
+# joining count join and weight to get id's recording 3 variables of health,steps,sleep and weight--------------
+
+cj <- inner_join(count_join,weightinfo,by="Id")
+head(cj)
+n_distinct(cj$Id)
+```
+6 distinct id's recording 3 variables of health out of total 33id's.
+
+
+
+```{r message=TRUE}
+# filtering unhealthy lifestyle category
+
+f5 <- filter(analysis12,Lifestyle_category == "Unhealthy")
+
+# counting unhealthy lifestyle distinct id's
+
+n_distinct(f5$id)
+
+
+```
+There are 22 id's in unhealthy lifestyle category
+
+
+
+```{r message=TRUE}
+# filtering unhealthy lifestyle category
+
+f6 <- filter(analysis12,Lifestyle_category == "Very Unhealthy")
+
+# counting very unhealthy lifestyle distinct id's
+
+n_distinct(f6$id)
+
+```
+There are 21 id's in the very unhealthy lifestyle category.
+
+
+
+```{r message=TRUE}
+# joining activity and weight data frames to plot relationships
+
+steps_weight <- inner_join(activity1,weight,by="id")
+
+head(steps_weight)
+
+```
+```{r message=TRUE, warning=FALSE}
+# left join weight with analysis12 for establishing relation between weight category and sedentary time category----------------
+
+wa12_j <- left_join(weight,analysis12,by="id")
+head(wa12_j)
+```
+
+
+
+```{r}
+# filtering obese person by id
+
+id <- filter(activity,Id == 1927972279)
+head(id)
+```
+
+
+### **Share(Visualizations)**:
+
+
+```{r}
+# converting id variable to factor for plotting
+
+id$TotalSteps <- as.factor(id$TotalSteps)
+
+# plotting obese person for steps and calories
+
+id %>% ggplot(aes(x=TotalSteps,y=Calories,color=TotalSteps))+
+  geom_point()+
+  labs(title = "Total Steps vs Calories Burned \nof Severely Obese Id",subtitle = "All steps taken fall in the inactive category, \n out of 31 obs.14 obs have 0 Total Steps")+
+  xlab("Total Steps")+ylab("Calories Burned")+
+  theme(axis.title = element_text(color = "dark green",face="italic",size = 15))+theme(axis.line = element_line(color = 'dark green', size = 1.5, linetype = 1))+
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+
+```{r}
+# plotting obese person for sedentary time and calories
+
+id %>% ggplot(aes(x=SedentaryMinutes,y=Calories,color=Calories))+
+  geom_point()+
+  geom_smooth()+
+  labs(title = "Sedentary Minutes vs Calories Burned \nof Severely Obese Id",subtitle = "All sedentary minutes observartions fall under \n the very high risk category \n(There is some negative relationship between \nthe two variables)")+
+  xlab("Sedentary Minutes")+ylab("Calories Burned")+
+  theme(axis.title = element_text(color = "dark green",face="italic",size = 15))+theme(axis.line = element_line(color = 'dark green', size = 1.5, linetype = 1))+
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+
+```{r}
+# using ggplot2 to plot number of obs. per weight category
+
+plot_count_weight %>% ggplot(aes(x=weight_category,y=n,fill = weight_category))+
+  geom_bar(stat ="identity")+
+  labs(title = "Numbers per weight category",subtitle = "67 obs.of 8 distinct id's")+
+  xlab("Weight Category")+
+  ylab("Count of Weight Category")+
+  theme_gray()+theme(axis.title = element_text(color = "dark green",face="italic",size = 15))+theme(axis.line = element_line(color = 'black', size = 1.5, linetype = 1))
+```
+Most obs. fall under the healthy and overweight category.
+
+
+
+```{r}
+# using ggplot2 to plot lifestyle category
+
+analysis12 %>% ggplot(aes(x=Lifestyle_category,fill=Lifestyle_category))+
+  geom_bar()+
+  labs(title = "Numbers per Lifestyle category",subtitle = "413 obs.of 24 distinct id's")+
+  xlab("Lifestyle Category")+
+  ylab("Count of Lifestyle Category")+
+  theme_gray()+theme(axis.title = element_text(color = "dark green",face="italic",size = 15))+theme(axis.line = element_line(color = 'black', size = 1.5, linetype = 1))+
+  theme(axis.text.x = element_text(angle = 90))
+```
+Most obs. fall under the unhealthy lifestyle category.
+
+
+
+```{r}
+# plotting for showing 6 distinct id's using ggplot2
+
+cj$Id <- as.factor(cj$Id)
+
+cj %>% 
+  ggplot(aes(x=Id,fill=Id))+
+  geom_bar()+
+  labs(title = "6 distinct id's recorded 3 variables(Steps,sleep,\nweight) of health out of 33 id's\n(i.e. 18.18%). \n (count on y axis is not relevant)")+
+  xlab("Id")+
+  theme_gray()+theme(axis.title = element_text(color = "dark green",face="italic",size = 15))+
+  theme(axis.text.x = element_text(angle = 90))
+  
+```
+
+
+```{r}
+# converting id datatype to factor for plotting
+c5$id <- as.factor(c5$id)
+
+# plotting unhealthy lifestyle id's
+
+c5 %>% ggplot(aes(x=id,y=n,fill=id))+
+  geom_bar(stat = "identity")+
+  labs(title = "22 Id's leading unhealthy Lifestyle")+
+  xlab("Id")+ylab("Number of observations")+
+  theme(axis.title = element_text(color = "dark green",face="italic",size = 15))+theme(axis.line = element_line(color = 'dark green', size = 1.5, linetype = 1))+
+  theme(axis.text.x = element_text(angle = 90))
+
+```
+
+
+```{r}
+# converting id datatype to factor for plotting
+
+c6$id <- as.factor(c6$id)
+
+# plotting very unhealthy lifestyle id's
+
+c6 %>% ggplot(aes(x=id,y=n,fill=id))+
+  geom_bar(stat = "identity")+
+  labs(title = "21 Id's leading very unhealthy Lifestyle")+
+  xlab("Id")+ylab("Number of observations")+
+  theme(axis.title = element_text(color = "dark green",face="italic",size = 15))+theme(axis.line = element_line(color = 'dark green', size = 1.5, linetype = 1))+
+  theme(axis.text.x = element_text(angle = 90))
+
+```
+
+
+```{r}
+# plotting to show relationship between weight category and steps
+
+steps_weight %>% ggplot(aes(x=weight_category,y=total_steps,color=weight_category))+
+  geom_point()+
+  labs(title = "Weight Category vs Total Steps",subtitle = "8 distinct id's\n(No clear relationship established between variables)")+
+  xlab("Weight Category")+ylab("Total Steps")+
+  theme(axis.title = element_text(color = "dark green",face="italic",size = 15))+theme(axis.line = element_line(color = 'dark green', size = 1.5, linetype = 1))
+
+```
+
+
+```{r}
+# plotting to find relationship between weight category and sedentary time category
+
+wa12_j %>% na.omit %>% ggplot(aes(x=weight_category,fill=sedentary_time_category))+
+  geom_bar()+
+labs(title = "Weight Category vs Sedentary Minutes",subtitle = "1114 obs. of 8 distinct id's\n(All weight categories have high to very high risk sedentary time categories")+
+  xlab("Weight Category")+ylab("Sedentary Minutes")+
+  theme(axis.title = element_text(color = "dark green",face="italic",size = 15))+theme(axis.line = element_line(color = 'dark green', size = 1.5, linetype = 1))
+
+```
+
+
+```{r}
+# plotting all 33 id's to show relationship between sedentary time and calories burned
+
+activity1 %>% ggplot(aes(x=sedentary_minutes,y=calories,color=calories))+
+  geom_point()+
+  geom_smooth(method = "loess")+
+  labs(title = "Sedentary Minutes vs Calories Burned",subtitle = "940 obs.of 33 distinct id's \n(Plot shows some negative relationship between the \n two variables)\n(The plot also shows large number of observations in the\n high to very high risk category of sedentary minutes)")+
+  xlab("Sedentary Minutes")+ylab("Calories Burned")+
+  theme(axis.title = element_text(color = "dark green",face="italic",size = 15))+theme(axis.line = element_line(color = 'dark green', size = 1.5, linetype = 1))+
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+
+```{r}
+# plotting all 33 id's to show relationship between steps and calories burned
+
+activity1 %>% ggplot(aes(x=total_steps,y=calories,color=total_steps))+
+  geom_point()+
+  geom_smooth(method = "loess")+
+  labs(title = "Total Steps vs Calories Burned",subtitle = "940 obs.of 33 distinct id's\nThe plot shows some relation between steps taken \n and calories burned")+
+  xlab("Total Steps")+ylab("Calories Burned")+
+  theme(axis.title = element_text(color = "dark green",face="italic",size = 15))+theme(axis.line = element_line(color = 'dark green', size = 1.5, linetype = 1))
+
+```
+
+
+```{r}
+# plotting all 33 id's to show relationship between total steps and sedentary minutes 
+
+activity1 %>% ggplot(aes(x=total_steps,y=sedentary_minutes,color = total_steps))+
+  geom_point()+
+  geom_smooth(span = 0.2)+
+  labs(title = "Total Steps vs Sedentary Minutes",subtitle = "The plot shows some negative relation between steps and \nsedentary time")+
+  xlab("Total Steps")+ylab("Sedentary Time in Minutes")+
+  theme(axis.title = element_text(color = "dark green",face="italic",size = 15))+theme(axis.line = element_line(color = 'dark green', size = 1.5, linetype = 1))
+```
+
+
+```{r}
+# plotting steps,sleep,sedentary time for each lifestyle category
+
+analysis12 %>% ggplot(aes(x=steps_category,y=sedentary_time_category,color=sleep_category))+
+  geom_point()+
+  facet_wrap(~Lifestyle_category)+
+  labs(title = "Steps Category vs Sedentary Time Category",subtitle = "Most obs. fall in the unhealthy category \nwith high to very high risk sedentary time, \nInactive steps and oversleep categories.")+
+  xlab("Steps Category")+ylab("Sedentary Time Category")+
+  theme(axis.title = element_text(color = "dark green",face="italic",size = 15))+theme(axis.line = element_line(color = 'dark green', size = 1.5, linetype = 1))+
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+
+## **Act**:
+
+**Recommendations**:
+
+*Insight*: Only 18% of total users record 3 variables of health(Steps,Sleep,Weight) which is a very small number.
+
+*Recommendation*: BellaBeat should encourage all its users to record all variables of health by explaining its importance, benefits of recording all health variables, thereby increasing usage of smart devices.
+
+*Insight*: 67% of id's lead an unhealthy lifestyle while 64% id's lead a very unhealthy lifestyle and 0% leading a healthy lifestyle.
+
+*Recommendation*: Marketing team should promote and advertise our products as a successful indicator of a persons lifestyle in terms of health and show what changes can one make to lead a healthy lifestyle, inform users about the ill effects of leading an unhealthy lifestyle and benefits of a healthy one. 
+
+The health variables to target for informing users are **STEPS,SLEEP TIME and SEDENTARY TIME**.
+
+*Insight*: Weight and Heart rate are the least recorded health variables in terms of the number of id's recording them.
+
+*Recommendation*: Importance of these two health variables shall be explained to users specifically not recording them and encourage them to have them recorded.
+
+*Insight*: There is a difference of **104280** steps between daily steps and hourly steps recorded and a difference of **13243** calories in daily and hourly calories recorded.
+
+*Recommendation*: Reason behind this difference must be investigated, to see if there is a glitch and if there is one, utmost care must be taken to ensure there exists nothing of this sort in BellaBeat's products.
+
